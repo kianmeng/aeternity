@@ -1111,7 +1111,8 @@ default_config(N, Config) ->
           #{<<"dir">> => iolist_to_binary(keys_dir(N, Config)),
             <<"peer_password">> => iolist_to_binary(io_lib:format("~w.~w.~w", [A,B,C]))},
       <<"logging">> =>
-          #{<<"hwm">> => 5000},
+          #{ <<"hwm">> => 5000
+           , <<"level">> => <<"debug">>},
       <<"mining">> =>
           #{<<"autostart">> => false,
             <<"beneficiary">> => aeser_api_encoder:encode(account_pubkey, PubKey),
