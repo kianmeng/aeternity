@@ -1,0 +1,42 @@
+
+main contract StakingValidator =
+  record state =
+    { main_staking_ct : address,
+      delegates : map(address, int),
+      shares : int }
+
+  entrypoint init(main_staking_ct : address) =
+    { main_staking_ct = main_staking_ct,
+      delegates = {},
+      shares = 0 }
+
+  payable stateful entrypoint stake(staker : address) =
+    require(Call.caller == state.main_staking_ct, "Only allowed through MainStaking")
+    require(Call.value > 0, "Stake must be > 0")
+    let new_shares = calculate_shares(Call.value)
+    add_shares(staker, new_shares)
+    put(state{shares @ s = s + new_shares})
+
+  payable entrypoint profit() =
+    require(Call.caller == state.main_staking_ct, "Only allowed through MainStaking")
+    ()
+
+  stateful entrypoint unstake(staker : address) : int =
+    require(Call.caller == state.main_staking_ct, "Only allowed through MainStaking")
+    let staker_shares = state.delegates[staker = 0]
+    let payout = (staker_shares * Contract.balance) / state.shares
+    Chain.spend(staker, payout)
+    put(state{ shares @ s = s - staker_shares,
+               delegates @ ds = Map.delete(staker, ds) })
+    payout
+
+  entrypoint get_state() = state
+
+  stateful function add_shares(staker : address, shares : int) =
+    put(state{ delegates[staker = 0] @ dshares = dshares + shares })
+
+  function calculate_shares(stake_size : int) =
+    if (state.shares == 0)
+      stake_size
+    else
+      (stake_size * state.shares) / (Contract.balance - stake_size)

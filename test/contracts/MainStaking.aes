@@ -1,0 +1,61 @@
+contract interface StakingValidator =
+  record validator_state = { main_staking_ct : address, delegates : map(address, int), shares : int }
+  entrypoint init : address => unit
+  payable stateful entrypoint stake : address => unit
+  payable entrypoint profit : () => unit
+  stateful entrypoint unstake : address => int
+  entrypoint get_state : () => validator_state
+
+main contract MainStaking =
+  record validator =
+    { ct : StakingValidator, stake : int }
+
+  record state =
+    { staking_validator_ct : StakingValidator,
+      validators : map(address, validator) }
+
+  entrypoint init(staking_validator_ct : StakingValidator) =
+    { staking_validator_ct = staking_validator_ct,
+      validators = {} }
+
+  entrypoint validators() =
+    let vs = Map.to_list(state.validators)
+    [ (v, s) | (v, {stake = s}) <- vs ]
+
+  payable stateful entrypoint new_validator() : StakingValidator =
+    require(Call.value >= 1_000_000_000_000_000_000_000, "Must stake the minimum amount")
+    let validator_ct : StakingValidator = Chain.clone(ref = state.staking_validator_ct, Contract.address)
+    validator_ct.stake(value = Call.value, Call.caller)
+    put(state{validators[Call.caller] = {ct = validator_ct, stake = Call.value}})
+    validator_ct
+
+  payable stateful entrypoint stake(to : address) =
+    require(Call.value >= 10_000_000_000_000_000_000, "Must stake the minimum amount")
+    require(Map.member(to, state.validators), "Validator must exists")
+    let validator = state.validators[to]
+
+    validator.ct.stake(value = Call.value, Call.caller)
+
+    put(state{validators[to] = validator{ stake @ s = s + Call.value }})
+
+  stateful entrypoint unstake(from : address) : int =
+    require(Map.member(from, state.validators), "Validator must exists")
+    let validator = state.validators[from]
+
+    let payout = validator.ct.unstake(Call.caller)
+
+    put(state{validators[from] = validator{ stake @ s = s - payout }})
+
+    payout
+
+  payable stateful entrypoint reward(to : address) =
+    require(Map.member(to, state.validators), "Validator must exists")
+    let validator = state.validators[to]
+    validator.ct.profit(value = Call.value)
+    put(state{validators[to] = validator{ stake @ s = s + Call.value }})
+
+  entrypoint get_validator_state(v : address) =
+    require(Map.member(v, state.validators), "Validator must exists")
+    let validator = state.validators[v]
+    validator.ct.get_state()
+
