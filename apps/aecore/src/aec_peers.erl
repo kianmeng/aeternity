@@ -1164,8 +1164,8 @@ on_peer_alive(PeerId, Pid, State) ->
     case conn_take(PeerId, State) of
         {#conn{ state = connecting, type = outbound, tcp_probe = true,
                 pid = Pid } = Conn, State2} ->
-            epoch_sync:info("Peer ~p - TCP probe successful through process ~p",
-                            [aec_peer:ppp(PeerId), Pid]),
+            epoch_sync:debug("Peer ~p - TCP probe successful through process ~p",
+                             [aec_peer:ppp(PeerId), Pid]),
             State3 = conn_cleanup(Conn, State2),
             {ok, pool_verify(PeerId, pool_release(PeerId, State3))};
         {#conn{ state = ConnState, type = Type, pid = Pid2 } = Conn, State2} ->
